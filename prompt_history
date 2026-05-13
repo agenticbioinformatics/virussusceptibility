@@ -1,0 +1,166 @@
+Prompt History
+
+
+Prompt 1 -- Clean up the repo
+
+Request: "clean up this project after the hackathon"
+
+Clarified scope: remove artifacts, strip notebook outputs, extract shared code into modules, clarify naming.
+
+Changes:
+- Added .gitignore (Python, Jupyter, macOS, data file patterns)
+- Added requirements.txt (numpy, pandas, torch, transformers, scikit-learn, seaborn, matplotlib; faiss-cpu optional)
+- Created src/ package with __init__.py
+- Extracted shared vector store code into src/vector_db.py (VectorDatabase, cosine_similarity, save/load helpers)
+- Extracted embedding logic into src/embedder.py (load_model, embed_paper, embed_papers, embed_query)
+- Extracted CORD-19 data helpers into src/cord19.py (iter_cord19_embeddings, load_cord19_metadata, lookup_article)
+- Stripped outputs from all notebooks in scripts/ and tests/
+- Removed !pip install cells from notebooks
+- Added sys.path.insert(0, '..') to notebooks so they can import from src/
+- Removed .DS_Store
+
+---
+
+Prompt 2 -- Convert notebooks to pipeline scripts
+
+Request: "convert all notebooks into python scripts. first script to download data. second script to
+construct a vector database and save it (input comes from the first script, output directory is provided
+as argument). third script to query the database (input is the vector database and a query string, for
+example hypertension, output is a list of top 10 publications most relevant to the query, including
+title and doi)."
+
+Changes:
+- Created scripts/download_data.py -- downloads CORD-19 release archive, extracts into data/
+- Created scripts/build_database.py -- builds vector database from downloaded data, saves as .pkl
+- Created scripts/query_database.py -- loads database, embeds query, prints top-k results with title and DOI
+- All three scripts use argparse with --help support and sensible defaults
+
+---
+
+Prompt 3 -- Custom embedding model and alternative database backend
+
+Request: "allow the user to use their own embedding model and other database (optional)."
+
+Changes:
+- src/embedder.py: changed load_specter() to generic load_model(model_id) accepting any HuggingFace
+  encoder; kept load_specter() as a backward-compatible alias
+- src/vector_db.py: added FaissVectorDatabase class backed by faiss.IndexFlatIP with L2 normalisation
+  (cosine similarity); lazy dimension inference on first insert; serialised as .faiss + .faiss.keys.pkl;
+  updated save_database() and load_database() to auto-detect backend from file extension
+- scripts/build_database.py: added --model argument (default: allenai/specter) and
+  --db-backend {pkl,faiss} argument
+- scripts/query_database.py: added --model argument; uses load_model() instead of load_specter()
+
+---
+
+Prompt 4 -- Fix CORD-19 download URLs (first attempt)
+
+Request: "fix downloading of cord-19 as follows: individual files are at
+https://ai2-semanticscholar-cord-19.s3-us-west-2.amazonaws.com/<date_iso_str>/<file_name> .
+<date_iso_str> should be replaced with the release date formatted as YYYY-MM-DD, and <file_name> with
+one of these: metadata.csv, full text document_parses.tar.gz and SPECTER embeddings:
+cord_19_embeddings.tar.gz."
+
+Changes:
+- scripts/download_data.py: rewrote download logic to fetch three separate files (metadata.csv,
+  cord_19_embeddings.tar.gz, document_parses.tar.gz) from per-file URLs; added --full-text flag to
+  skip document_parses by default
+
+---
+
+Prompt 5 -- Fix CORD-19 download URLs (correct archive structure)
+
+Request: "fix the downloading as follows: now files are stored like this:
+https://ai2-semanticscholar-cord-19.s3-us-west-2.amazonaws.com/historical_releases/cord-19_2020-03-13.tar.gz"
+
+Changes:
+- scripts/download_data.py: complete rewrite to download a single .tar.gz archive per release; URL
+  pattern: {CORD19_BASE}/historical_releases/cord-19_{release}.tar.gz; extracts into output_dir/;
+  skips document_parses/ unless --full-text is set; added --url override argument; skips download if
+  output files already present
+
+---
+
+Prompt 6 -- Fix build_database.py for actual downloaded data
+
+Request: "fix the logic and bugs in build_database.py based on the output from download_data.py
+(which is now stored in data/)"
+
+Context: actual data was in data/2020-03-13/ subdirectory; metadata file was
+all_sources_metadata_2020-03-13.csv; no pre-computed embeddings; key column was sha not cord_uid.
+
+Changes:
+- src/cord19.py: added find_release_dir() (checks data/{release}/ first, falls back to data_dir);
+  updated find_metadata_csv() with glob patterns for both metadata.csv and all_sources_metadata_*.csv;
+  updated _key_column() and lookup_article() to auto-detect cord_uid vs sha key column
+- scripts/build_database.py: added find_embeddings_csv() helper; implemented two-mode logic: Mode A
+  loads pre-computed embeddings CSV if present, Mode B embeds from metadata using HuggingFace model;
+  added load_papers_from_metadata() with key-column auto-detection and --max-articles support; uses
+  find_release_dir() and find_metadata_csv() from src.cord19
+
+---
+
+Prompt 7 -- Fix query_database.py for actual build output
+
+Request: "fix the logic and bugs in query_database.py based on the output from build_databases.py"
+
+Context: database keys were sha hashes; metadata file was in release subdirectory;
+find_release_dir/find_metadata_csv were not yet accessible to query script.
+
+Changes:
+- src/cord19.py: confirmed find_release_dir and find_metadata_csv are exported (moved here from
+  build script)
+- scripts/query_database.py: replaced hardcoded cord_uid loop variable with key; added mutually
+  exclusive --metadata-file / --data-dir argument group (both requiring --release for auto-discovery);
+  fixed result header to show len(search_results) instead of args.top_k; moved all src.* imports to
+  after args = parser.parse_args() to avoid ImportError on --help
+- src/vector_db.py: fixed cosine_similarity returning nan when query vector norm is zero (added
+  if denom == 0.0: return 0.0 guard)
+
+---
+
+Prompt 8 -- Create prompt history file
+
+Request: "create a file called prompt_history with my prompts (including this one) and a summary of
+changes associated with each prompt (or add this information to an existing one)"
+
+Changes:
+- Created prompt_history.md documenting all 8 prompts and their associated changes
+
+---
+
+Prompt 9 -- Convert prompt history to plain text
+
+Request: "convert the prompt_history.md file into a text file prompt_history"
+
+Changes:
+- Converted prompt_history.md to plain text file prompt_history (removed Markdown formatting)
+- Deleted prompt_history.md
+
+---
+
+Prompt 10 -- Rewrite README.md
+
+Request: "update README.md: make it minimalistic, add a note on top for me to fill in later, move the
+content of requirements.txt into instructions in README (including GPU and CPU for torch), add section
+on how to run the scripts, add reference to the CORD-19 dataset:
+https://github.com/allenai/cord19"
+
+Changes:
+- Replaced the full hackathon README (intro, methods, results, bibliography, relevant literature) with
+  a minimal document
+- Added TODO note at the top as a placeholder for the user to fill in
+- Added Installation section with pip commands for CPU, GPU (CUDA 11.8), and optional faiss-cpu/faiss-gpu
+- Added Usage section with example commands for all three pipeline scripts
+  (download_data.py, build_database.py, query_database.py) including key optional flags
+- Added Data section linking to the CORD-19 dataset on GitHub
+
+---
+
+Prompt 11 -- Update prompt history
+
+Request: "create a text file called 'prompt_history' with my prompts (including this one) and a summary
+of changes associated with each prompt (or add this information to an existing 'prompt_history' file)"
+
+Changes:
+- Appended prompts 10 and 11 to the existing prompt_history file

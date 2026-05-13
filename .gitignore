@@ -1,0 +1,9 @@
+# Python
+*pycache*
+
+# Data files (too large for git)
+*.csv
+*.p
+*.pkl
+data/*
+db/*
