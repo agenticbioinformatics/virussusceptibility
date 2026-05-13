@@ -1,4 +1,4 @@
-> This project originated at the CMU / DNAnexus Hackathon (October 19–21, 2023) and was developed by Jędrzej Kubica, Shashank Katiyar, and Ben Busby. It is publicly available under the MIT license at https://github.com/collaborativebioinformatics/virussusceptibility
+> The scientific idea was introduced by Jędrzej Kubica, Shashank Katiyar, and Ben Busby at the CMU / DNAnexus Hackathon on October 19–21, 2023. The technology was created by agentic AI provided by Claude Sonnet 4.6. The original project is available under the MIT license at https://github.com/collaborativebioinformatics/virussusceptibility
 
 # Virus Susceptibility
 
